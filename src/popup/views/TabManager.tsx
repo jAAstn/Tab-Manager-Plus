@@ -22,6 +22,28 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 	private masonry : Masonry | null = null;
 	private masonryTarget : HTMLElement | null = null;
 
+	private readonly runUpdate = () => this.setState({ dirty: true });
+	private readonly runSlowUpdate = debounce(this.runUpdate, 250);
+	private readonly onRuntimeMessage = (message : unknown) => {
+		const request = message as ICommand;
+
+		switch (request.command) {
+			case S.refresh_windows:
+				const window_ids : number[] = request.window_ids;
+				for (const window_id of window_ids) {
+					const _window = this.state.windowrefs.get(window_id)?.current;
+					if (!_window) continue;
+					_window.checkSettings();
+				}
+				break;
+		}
+	}
+	// the worker records window focus order (windowAge) after the same focus event
+	// the popup reacts to; when its write lands, re-sort so the order is never stale
+	private readonly onStorageChanged = (changes : Record<string, unknown>, area : string) => {
+		if (area === "local" && "windowAge" in changes) this.runUpdate();
+	}
+
 	constructor(props : ITabManager) {
 		super(props);
 
@@ -121,6 +143,24 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 
 	componentWillUnmount() {
 		this.masonry?.disconnect();
+
+		browser.tabs.onCreated.removeListener(this.runUpdate);
+		browser.tabs.onUpdated.removeListener(this.runSlowUpdate);
+		browser.tabs.onMoved.removeListener(this.runSlowUpdate);
+		browser.tabs.onRemoved.removeListener(this.runUpdate);
+		browser.tabs.onReplaced.removeListener(this.runSlowUpdate);
+		browser.tabs.onDetached.removeListener(this.runUpdate);
+		browser.tabs.onAttached.removeListener(this.runUpdate);
+		browser.tabs.onActivated.removeListener(this.runSlowUpdate);
+
+		browser.windows.onFocusChanged.removeListener(this.runUpdate);
+		browser.windows.onCreated.removeListener(this.runUpdate);
+		browser.windows.onRemoved.removeListener(this.runUpdate);
+
+		browser.runtime.onMessage.removeListener(this.onRuntimeMessage);
+
+		browser.storage.onChanged.removeListener(this.sessionSync);
+		browser.storage.onChanged.removeListener(this.onStorageChanged);
 	}
 
 	syncMasonry() {
@@ -148,28 +188,25 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 		var tabWidth = 800;
 		var tabHeight = 600;
 
-		var storage = await browser.storage.local.get(null);
+		const defaults : Record<string, unknown> = {
+			layout, tabLimit, tabWidth, tabHeight,
+			animations, windowTitles, tabactions, badge,
+			openInOwnTab, compact, dark, sessionsFeature, hideWindows,
+			"filter-tabs": filterTabs
+		};
+		const stored = await browser.storage.local.get(Object.keys(defaults));
 
-		if (!storage["layout"]) storage["layout"] = layout;
-		if (typeof storage["tabLimit"] === "undefined") storage["tabLimit"] = tabLimit;
-		if (typeof storage["tabWidth"] === "undefined") storage["tabWidth"] = tabWidth;
-		if (typeof storage["tabHeight"] === "undefined") storage["tabHeight"] = tabHeight;
+		// write back only the settings that are missing, plus the version.
+		// Writing every key from a snapshot (the old get(null) / set(all))
+		// overwrote whatever the worker had changed in the meantime: window
+		// names, colors, the window order.
+		const missing : Record<string, unknown> = { version: window.extensionVersion };
+		for (const key in defaults) {
+			if (stored[key] === undefined || (key === "layout" && !stored[key])) missing[key] = defaults[key];
+		}
+		await browser.storage.local.set(missing);
 
-		if (typeof storage["animations"] === "undefined") storage["animations"] = animations;
-		if (typeof storage["windowTitles"] === "undefined") storage["windowTitles"] = windowTitles;
-		if (typeof storage["tabactions"] === "undefined") storage["tabactions"] = tabactions;
-		if (typeof storage["badge"] === "undefined") storage["badge"] = badge;
-
-		if (typeof storage["openInOwnTab"] === "undefined") storage["openInOwnTab"] = openInOwnTab;
-		if (typeof storage["compact"] === "undefined") storage["compact"] = compact;
-		if (typeof storage["dark"] === "undefined") storage["dark"] = dark;
-		if (typeof storage["sessionsFeature"] === "undefined") storage["sessionsFeature"] = sessionsFeature;
-		if (typeof storage["hideWindows"] === "undefined") storage["hideWindows"] = hideWindows;
-		if (typeof storage["filter-tabs"] === "undefined") storage["filter-tabs"] = filterTabs;
-
-		storage["version"] = window.extensionVersion;
-
-		await browser.storage.local.set(storage);
+		const storage : Record<string, unknown> = { ...stored, ...missing };
 
 		layout = storage["layout"] as string;
 		tabLimit = storage["tabLimit"] as number;
@@ -236,8 +273,6 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 		});
 	}
 	render() {
-		let _this = this;
-
 		// let hiddenCount = this.state.hiddenCount || 0;
 		let tabCount = this.state.tabCount;
 
@@ -295,16 +330,16 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 								window={window}
 								tabs={window.tabs}
 								incognito={window.incognito}
-								layout={_this.state.layout}
-								selection={_this.state.selection}
-								searchActive={_this.state.searchLen > 0}
-								sessionsFeature={_this.state.sessionsFeature}
-								tabactions={_this.state.tabactions}
-								hiddenTabs={_this.state.hiddenTabs}
-								filterTabs={_this.state.filterTabs}
+								layout={this.state.layout}
+								selection={this.state.selection}
+								searchActive={this.state.searchLen > 0}
+								sessionsFeature={this.state.sessionsFeature}
+								tabactions={this.state.tabactions}
+								hiddenTabs={this.state.hiddenTabs}
+								filterTabs={this.state.filterTabs}
 								draggable={true}
-								windowTitles={_this.state.windowTitles}
-								lastOpenWindow={_this.state.lastOpenWindow}
+								windowTitles={this.state.windowTitles}
+								lastOpenWindow={this.state.lastOpenWindow}
 								ref={windowRef}
 							/>
 						);
@@ -328,16 +363,16 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 								window={window}
 								tabs={window.tabs}
 								incognito={window.incognito}
-								layout={_this.state.layout}
-								selection={_this.state.selection}
-								searchActive={_this.state.searchLen > 0}
-								sessionsFeature={_this.state.sessionsFeature}
-								tabactions={_this.state.tabactions}
-								hiddenTabs={_this.state.hiddenTabs}
-								filterTabs={_this.state.filterTabs}
+								layout={this.state.layout}
+								selection={this.state.selection}
+								searchActive={this.state.searchLen > 0}
+								sessionsFeature={this.state.sessionsFeature}
+								tabactions={this.state.tabactions}
+								hiddenTabs={this.state.hiddenTabs}
+								filterTabs={this.state.filterTabs}
 								draggable={true}
-								windowTitles={_this.state.windowTitles}
-								lastOpenWindow={_this.state.lastOpenWindow}
+								windowTitles={this.state.windowTitles}
+								lastOpenWindow={this.state.lastOpenWindow}
 								ref={windowRef}
 							/>
 						);
@@ -355,14 +390,14 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 										session={window}
 										tabs={window.tabs}
 										incognito={window.incognito}
-										layout={_this.state.layout}
-										selection={_this.state.selection}
-										searchActive={_this.state.searchLen > 0}
-										tabactions={_this.state.tabactions}
-										hiddenTabs={_this.state.hiddenTabs}
-										filterTabs={_this.state.filterTabs}
-										windowTitles={_this.state.windowTitles}
-										lastOpenWindow={_this.state.lastOpenWindow}
+										layout={this.state.layout}
+										selection={this.state.selection}
+										searchActive={this.state.searchLen > 0}
+										tabactions={this.state.tabactions}
+										hiddenTabs={this.state.hiddenTabs}
+										filterTabs={this.state.filterTabs}
+										windowTitles={this.state.windowTitles}
+										lastOpenWindow={this.state.lastOpenWindow}
 										draggable={false}
 									/>
 								);
@@ -504,51 +539,23 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 			}
 		}
 
-		let _this = this;
+		browser.tabs.onCreated.addListener(this.runUpdate);
+		browser.tabs.onUpdated.addListener(this.runSlowUpdate);
+		browser.tabs.onMoved.addListener(this.runSlowUpdate);
+		browser.tabs.onRemoved.addListener(this.runUpdate);
+		browser.tabs.onReplaced.addListener(this.runSlowUpdate);
+		browser.tabs.onDetached.addListener(this.runUpdate);
+		browser.tabs.onAttached.addListener(this.runUpdate);
+		browser.tabs.onActivated.addListener(this.runSlowUpdate);
 
-		var runUpdate = () => {
-			_this.setState({ dirty: true });
-		}
+		browser.windows.onFocusChanged.addListener(this.runUpdate);
+		browser.windows.onCreated.addListener(this.runUpdate);
+		browser.windows.onRemoved.addListener(this.runUpdate);
 
-		var runSlowUpdate = debounce(() => {
-			_this.setState({dirty: true});
-		}, 250);
-
-		browser.tabs.onCreated.addListener(runUpdate);
-		browser.tabs.onUpdated.addListener(runSlowUpdate);
-		browser.tabs.onMoved.addListener(runSlowUpdate);
-		browser.tabs.onRemoved.addListener(runUpdate);
-		browser.tabs.onReplaced.addListener(runSlowUpdate);
-		browser.tabs.onDetached.addListener(runUpdate);
-		browser.tabs.onAttached.addListener(runUpdate);
-		browser.tabs.onActivated.addListener(runSlowUpdate);
-
-		browser.windows.onFocusChanged.addListener(runUpdate);
-		browser.windows.onCreated.addListener(runUpdate);
-		browser.windows.onRemoved.addListener(runUpdate);
-
-		browser.runtime.onMessage.addListener((message : unknown) => {
-			const request = message as ICommand;
-
-			switch (request.command) {
-				case S.refresh_windows:
-					const window_ids : number[] = request.window_ids;
-					for (const window_id of window_ids) {
-						const _window = this.state.windowrefs.get(window_id)?.current;
-						if (!_window) continue;
-						_window.checkSettings();
-					}
-					break;
-			}
-		});
-
+		browser.runtime.onMessage.addListener(this.onRuntimeMessage);
 
 		browser.storage.onChanged.addListener(this.sessionSync);
-		// the worker records window focus order (windowAge) after the same focus event
-		// the popup reacts to; when its write lands, re-sort so the order is never stale
-		browser.storage.onChanged.addListener((changes, area) => {
-			if (area === "local" && "windowAge" in changes) runUpdate();
-		});
+		browser.storage.onChanged.addListener(this.onStorageChanged);
 
 		await this.sessionSync();
 
@@ -678,10 +685,7 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 		// this.forceUpdate();
 	}
 	deleteTabs = async () => {
-		const _this = this;
-		const tabs: browser.Tabs.Tab[] = [...this.state.selection.keys()].map(function(id) {
-			return _this.state.tabsbyid.get(id);
-		});
+		const tabs = this.selectedTabs();
 		if (tabs.length) {
 			browser.runtime.sendMessage<ICommand>({command: S.close_tabs, tabs: tabs});
 		} else {
@@ -695,10 +699,7 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 		browser.tabs.remove(tabId);
 	}
 	discardTabs = async () => {
-		const _this = this;
-		const tabs : browser.Tabs.Tab[] = [...this.state.selection.keys()].map(function(id) {
-			return _this.state.tabsbyid.get(id);
-		});
+		const tabs = this.selectedTabs();
 		if (tabs.length) {
 			browser.runtime.sendMessage<ICommand>({command: S.discard_tabs, tabs: tabs});
 		}
@@ -708,11 +709,8 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 		browser.tabs.discard(tabId);
 	}
 	addWindow = async () => {
-		const _this = this;
-		const count = this.state.selection.size;
-		const tabs : browser.Tabs.Tab[] = [...this.state.selection.keys()].map(function(id) {
-			return _this.state.tabsbyid.get(id);
-		});
+		const tabs = this.selectedTabs();
+		const count = tabs.length;
 
 		const incognito_tabs = tabs.filter(function(tab) {
 			return tab.incognito;
@@ -741,11 +739,7 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 		if (!!window.inPopup) window.close();
 	}
 	pinTabs = async () => {
-		const _this = this;
-		const tabs : browser.Tabs.Tab[] = [...this.state.selection.keys()]
-			.map(function(id) {
-				return _this.state.tabsbyid.get(id);
-			})
+		const tabs = this.selectedTabs()
 			.sort(function(a, b) {
 				return a.index - b.index;
 			});
@@ -1307,6 +1301,17 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 				return "Vertical";
 		}
 	}
+	// The selection may hold ids of tabs that closed since they were selected,
+	// and of session tabs, which are not open tabs; neither is in tabsbyid.
+	// Sending those on as undefined crashed the worker's close/move/discard.
+	selectedTabs() : browser.Tabs.Tab[] {
+		const tabs : browser.Tabs.Tab[] = [];
+		for (const id of this.state.selection.keys()) {
+			const tab = this.state.tabsbyid.get(id);
+			if (!!tab) tabs.push(tab);
+		}
+		return tabs;
+	}
 	select(id : number) {
 		if (this.state.selection.has(id)) {
 			this.state.selection.delete(id);
@@ -1481,11 +1486,9 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 		}
 	}
 	async drop(id : number, before : boolean) {
-		var _this = this;
 		var tab : browser.Tabs.Tab = this.state.tabsbyid.get(id);
-		var tabs : browser.Tabs.Tab[] = [...this.state.selection.keys()].map(function(id) {
-			return _this.state.tabsbyid.get(id);
-		});
+		if (!tab) return;
+		var tabs = this.selectedTabs();
 		var index = tab.index + (before ? 0 : 1);
 
 		for (let i = 0; i < tabs.length; i++) {
@@ -1497,10 +1500,7 @@ export class TabManager extends React.Component<ITabManager, ITabManagerState> {
 		this.update();
 	}
 	async dropWindow(windowId : number) {
-		var _this = this;
-		var tabs : browser.Tabs.Tab[] = [...this.state.selection.keys()].map(function(id) {
-			return _this.state.tabsbyid.get(id);
-		});
+		var tabs = this.selectedTabs();
 
 		browser.runtime.sendMessage<ICommand>({command: S.move_tabs_to_window, window_id: windowId, tabs: tabs});
 

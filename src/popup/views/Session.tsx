@@ -25,37 +25,39 @@ export class Session extends React.Component<ISession, ISessionState> {
 
 	}
 	render() {
-		let _this = this;
 		let hideWindow = true;
 		let titleAdded = false;
-		let tabs = this.props.tabs.map(function(tab) {
+		let tabs = this.props.tabs.map((tab) => {
 			let tabId = tab.id * tab.id * tab.id * 100;
-			let isHidden = _this.props.hiddenTabs.has(tabId) && _this.props.filterTabs;
-			let isSelected = _this.props.selection.has(tabId);
-			let isFaded: boolean = _this.props.hiddenTabs.has(tab.id) && !_this.props.filterTabs;
-			tab.id = tab.index;
+			let isHidden = this.props.hiddenTabs.has(tabId) && this.props.filterTabs;
+			let isSelected = this.props.selection.has(tabId);
+			let isFaded: boolean = this.props.hiddenTabs.has(tab.id) && !this.props.filterTabs;
+			// session tabs are addressed by their index when restoring; render
+			// a copy so the stored session (and the tabId derived above) is
+			// never changed by rendering
+			const sessionTab = Object.assign({}, tab, {id: tab.index});
 			if (!isHidden) hideWindow = false;
 			return (
 				<Tab
-					id={"sessiontab_" + _this.props.session.id + "_" + tab.index}
-					key={"sessiontab_" + _this.props.session.id + "_" + tab.index}
-					onOpen={_this.openTab}
-					session={_this.props.session}
-					layout={_this.props.layout}
-					tab={tab}
+					id={"sessiontab_" + this.props.session.id + "_" + tab.index}
+					key={"sessiontab_" + this.props.session.id + "_" + tab.index}
+					onOpen={this.openTab}
+					session={this.props.session}
+					layout={this.props.layout}
+					tab={sessionTab}
 					selected={isSelected}
 					hidden={isHidden}
 					faded={isFaded}
 					draggable={false}
-					searchActive={_this.props.searchActive}
+					searchActive={this.props.searchActive}
 				/>
 			);
 		});
 		if (!hideWindow) {
 			if (!!this.props.tabactions) {
 				tabs.push(
-					<div key={"sessionnl_" + _this.props.session.id} className="newliner" />,
-					<div key={"sessionwa_" + _this.props.session.id} className="window-actions">
+					<div key={"sessionnl_" + this.props.session.id} className="newliner" />,
+					<div key={"sessionwa_" + this.props.session.id} className="window-actions">
 						<div
 							className={"icon tabaction restore " + (this.props.layout.indexOf("blocks") > -1 ? "" : "windowaction")}
 							title={"Restore this saved window\nWill restore " + maybePluralize(this.props.tabs.length, "tab") + ". Please note : The tabs will be restored without their history."}
@@ -139,9 +141,8 @@ export class Session extends React.Component<ISession, ISessionState> {
 	async restoreSession(e : React.MouseEvent<HTMLDivElement>, tabId : number) {
 		e.stopPropagation();
 
-		var _this = this;
-
-		await browser.runtime.sendMessage<ICommand>({
+		// the worker answers with the id of the window it created
+		const windowId : number | undefined = await browser.runtime.sendMessage<ICommand, number | undefined>({
 			command: S.create_window_with_session_tabs,
 			session: this.props.session,
 			tab_id: tabId
@@ -149,9 +150,10 @@ export class Session extends React.Component<ISession, ISessionState> {
 
 		if (!!window.inPopup) {
 			window.close();
-		}else{
-			setTimeout(function() {
-				_this.context.scrollTo("window", browser.windows.WINDOW_ID_CURRENT.toString());
+		} else if (windowId !== undefined) {
+			// give the popup a moment to pick up the new window and render it
+			setTimeout(() => {
+				this.context.scrollTo("window", windowId.toString());
 			}, 500);
 		}
 	}
