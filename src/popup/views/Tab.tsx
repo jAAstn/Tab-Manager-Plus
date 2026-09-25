@@ -59,6 +59,12 @@ export class Tab extends React.Component<ITab, ITabState> {
 					Selected
 				</div>
 			);
+			const muted = !!this.props.tab.mutedInfo && this.props.tab.mutedInfo.muted;
+			children.push(
+				<div key={"tab-audible-" + this.props.tab.id} className={"tab-audible " + (!this.props.tab.audible && !muted ? "hidden" : "")}>
+					{muted ? "Muted" : "Media"}
+				</div>
+			);
 			children.push(
 				<div
 					key={"tab-icon-" + this.props.tab.id}
