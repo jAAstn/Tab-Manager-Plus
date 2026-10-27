@@ -67,27 +67,26 @@ npm ci
 npm run build            # -> build/chrome and build/brave
 npm run build:chrome     # -> build/chrome
 npm run build:brave      # -> build/brave
-npm run build:firefox    # -> build/firefox
 ```
+
+Every build run on a terminal first asks which version the extension should be (Enter keeps the version in the repo, `--version 7.1.0` answers it up front). The answer goes into the built `manifest.json` and into the popup bundles, so the extension card and the options page show it. The files in the repo keep the committed version, so a local build changes nothing that `npm run check-version` checks. `npm run watch`, CI and an unattended build are not asked.
 
 Then load the built folder as an unpacked extension:
 
 * **Chrome / Edge:** open `chrome://extensions`, turn on *Developer mode*, click *Load unpacked* and pick `build/chrome`.
 * **Brave:** the same, with `build/brave`. Brave 1.84 ships Chromium 142, which is older than current Chrome; the Brave build and the shared compatibility fixes keep the extension working there.
-* **Firefox:** run `npx web-ext run --source-dir build/firefox`, or open `about:debugging` → *This Firefox* → *Load Temporary Add-on* and pick `build/firefox/manifest.json`. The 7.x Firefox version is not published yet, and the current Firefox add-on is still built from the `firefox_521` branch.
 
 Useful scripts:
 
 * `npm run watch` rebuilds on every change (`npm run watch:dev` for an unminified build with source maps). It writes into the same `build/chrome` folder and also re-copies the pages, css, images and the manifest, so a *Reload* on the extension card picks the change up.
 * `npm run build:dev` builds once without minification. Add `--devtools` (`node build.mjs --dev --devtools`) to give the dev build the `localhost:8097` content security policy that `npx react-devtools` needs; it is opt-in and never part of the committed manifest.
 * `npm test` runs all of the tests once and reports any that fail.
-* `npm run package` makes the zip files for release; `npm run release` also runs the checks first.
-* `npm run lint:firefox` runs `web-ext lint` over `build/firefox`.
+* `npm run package` makes the zip file for release; `npm run release` also runs the checks first.
 * `npm run check-version` verifies that the version number is the same in every file; `npm version <x.y.z>` bumps it everywhere.
 
 ## Other Notes
 
-You can install this extension from the [Chrome Web Store](https://chromewebstore.google.com/detail/tab-manager-plus-for-chro/cnkdjjdmfiffagllbiiilooaoofcoeff) or the [Firefox Add-Ons](https://addons.mozilla.org/en-US/firefox/addon/tab-manager-plus-for-firefox/).
+You can install this extension from the [Chrome Web Store](https://chromewebstore.google.com/detail/tab-manager-plus-for-chro/cnkdjjdmfiffagllbiiilooaoofcoeff).
 
 * For a list of changes, check out the [changelog](./CHANGELOG.md), which covers every version released so far.
 * Read the [latest Reddit threads](https://www.reddit.com/search/?q=Tab%20Manager%20Plus) where people talk about Tab Manager Plus.

@@ -5,22 +5,17 @@
 // Writes into release/:
 //   tab-manager-plus-<version>.chrome.zip    upload to the Chrome Web Store (and Edge, Opera)
 //   tab-manager-plus-<version>.chrome.crx    self-hosted install; only when a key is found
-//   tab-manager-plus-<version>.firefox.zip   upload to addons.mozilla.org
-//   tab-manager-plus-<version>.firefox.xpi   the same file under the .xpi name, for the
-//                                             GitHub release; unsigned, so release Firefox
-//                                             only loads it as a temporary add-on
 //   tab-manager-plus-<version>.source.zip    the committed source (git archive HEAD),
 //                                             for store reviewers that ask for it
 //
-// Each browser gets its own production build, since the browser is compiled in.
-// build.mjs writes a complete extension folder per browser, so a store zip is
-// simply the contents of build/<browser>/ - that folder is the truth about what
-// ships, and nothing is listed twice here.
+// The browser is compiled in, and build.mjs writes a complete extension folder,
+// so a store zip is simply the contents of build/chrome - that folder is the
+// truth about what ships, and nothing is listed twice here.
 //
 // The .crx is signed with the key from $CRX_KEY, else key.pem, else key.pem.bak.
 // No key is ever generated: a new key would give the extension a new id.
 
-import { copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { execFileSync } from "node:child_process";
 import yazl from "yazl";
@@ -64,9 +59,9 @@ function writeZip(dir, zipPath) {
 	}).then(() => console.log(`wrote ${zipPath} (${files.length} files)`));
 }
 
-function build(browser) {
-	execFileSync(process.execPath, ["build.mjs", ...(browser === "firefox" ? ["--firefox"] : [])], { stdio: "inherit" });
-	return join("build", browser);
+function build() {
+	execFileSync(process.execPath, ["build.mjs"], { stdio: "inherit" });
+	return join("build", "chrome");
 }
 
 function findKey() {
@@ -85,13 +80,7 @@ async function main() {
 	mkdirSync(OUT);
 	const base = join(OUT, `${NAME}-${version}`);
 
-	await writeZip(build("firefox"), `${base}.firefox.zip`);
-	// TODO: ship a signed .xpi (AMO signs each approved version; web-ext sign can fetch it) so release Firefox installs it
-	copyFileSync(`${base}.firefox.zip`, `${base}.firefox.xpi`);
-	console.log(`wrote ${base}.firefox.xpi (unsigned copy of the .zip)`);
-
-	const chrome = build("chrome");
-	await writeZip(chrome, `${base}.chrome.zip`);
+	await writeZip(build(), `${base}.chrome.zip`);
 
 	const key = findKey();
 	if (key) {

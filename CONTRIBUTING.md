@@ -34,7 +34,7 @@ them before opening an issue or a pull request.
 - **Keep to the roadmap.** Features not on the
   [roadmap](https://tabmanagerplus.com/roadmap.html) may be declined even if the
   code is good. The extension is kept deliberately small.
-- **Firefox and Chrome.** Every change must work in both. Say which you tested on.
+- **Chrome and Brave.** Every change must work in both (Brave ships an older Chromium than Chrome stable). Say which you tested on.
 - **Describe the change for users**, with a screenshot or short video for anything
   visual, and a line for CHANGELOG.md.
 
@@ -43,8 +43,7 @@ them before opening an issue or a pull request.
 ```
 npm install            # Node 22.18 or newer
 npm test               # all tests pass
-npm run build          # Chrome, includes tsc
-npm run build:firefox  # Firefox
+npm run build          # Chrome and Brave, includes tsc
 ```
 
 Also:
@@ -70,6 +69,6 @@ Everything merged is licensed under MPL-2.0 like the rest of the project.
 
 ## Other ways to help
 
-Test release candidates on Firefox, confirm or narrow down open bugs on the
-current version, and improve the help page. These are often worth more than
+Test release candidates in Chrome and Brave, confirm or narrow down open bugs
+on the current version, and improve the help page. These are often worth more than
 new features.

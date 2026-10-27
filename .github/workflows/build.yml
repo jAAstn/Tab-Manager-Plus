@@ -32,5 +32,3 @@ jobs:
       - run: npm run check-changelog
       - run: npm test
       - run: npm run build   # -> build/chrome and build/brave
-      - run: npm run build:firefox   # -> build/firefox
-      - run: npm run lint:firefox    # web-ext lint on the folder we just built

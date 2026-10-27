@@ -6,6 +6,7 @@ import * as React from "react";
 import {ITab, ITabState} from '@types';
 import {ManagerContext, ITabManagerActions} from '../context';
 import {faviconTone} from '@helpers/favicon';
+import {suspendedTabIcon, suspendedTabPage, storedFavicon} from '@helpers/tabIcon';
 import {tabFreshness} from "../freshness";
 import {titleHits} from "../search";
 import {stripUserinfo, shownUrl} from "../safeUrl";
@@ -391,35 +392,42 @@ export class Tab extends React.Component<ITab, ITabState> {
 	}
 	favIconStyle() : React.CSSProperties {
 		const style : Record<string, string> = {};
-		if (this.state.favIcon) style["--fav"] = "url(" + this.state.favIcon + ")";
+		// the address goes into the declaration quoted and escaped: an icon or a
+		// page address can hold a quote, a backslash or a semicolon, none of
+		// which may end the declaration early
+		if (this.state.favIcon) style["--fav"] = 'url("' + this.state.favIcon.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '")';
 		return style as React.CSSProperties;
 	}
+	// Firefox has no favicon store to ask: the page reports its own icon url,
+	// and the extension's own pages get the drawings bundled with it
+	pageFavIcon(address : string) : string {
+		if (!!address && address.indexOf("chrome://") !== 0 && address.indexOf("about:") !== 0) {
+			return this.props.tab.favIconUrl || "";
+		}
+		const favIcons = ["bookmarks", "chrome", "crashes", "downloads", "extensions", "flags", "history", "settings"];
+		if (address.length <= 9) return "";
+		const iconName = address.slice(9).match(/^\w+/g);
+		return !iconName || favIcons.indexOf(iconName[0]) < 0 ? "" : "../images/chrome/" + iconName[0] + ".png";
+	}
 	resolveFavIconUrl = () => {
+		const tab = this.props.tab;
+		const address : string = tab.url || tab.pendingUrl || "";
+		// a tab a suspender extension holds carries the page's icon, or at least
+		// its address, in its own address (helpers/tabIcon.ts)
+		const suspendedIcon = suspendedTabIcon(address);
+		const suspendedPage = suspendedIcon ? "" : suspendedTabPage(address);
+
 		let image : string;
-		// firefox screenshots; needs <all_urls>
-		// if(!!browser.tabs.captureTab) {
-		// 	console.log("tabs captureTab");
-		// 	image = await browser.tabs.captureTab(this.props.tab.id);
-		// 	image = "url(" + image + ")";
-		// }else
-
-		var _url : string = this.props.tab.url || this.props.tab.pendingUrl || "";
-
-		if (!!_url && !IS_FIREFOX) {
-			if (this.props.tab.status !== "loading") {
-				image = "chrome-extension://" + chrome.runtime.id + "/_favicon/?pageUrl=" + encodeURIComponent(_url) + "&size=64";
-			} else {
-				image = "";
-			}
-		} else if (!!_url && _url.indexOf("chrome://") !== 0 && _url.indexOf("about:") !== 0) {
-			 image = this.props.tab.favIconUrl ? "" + this.props.tab.favIconUrl + "" : "";
-		 } else {
-			const favIcons = ["bookmarks", "chrome", "crashes", "downloads", "extensions", "flags", "history", "settings"];
-			let iconUrl = _url;
-			if (iconUrl.length > 9) {
-				let iconName = iconUrl.slice(9).match(/^\w+/g);
-				image = !iconName || favIcons.indexOf(iconName[0]) < 0 ? "" : "../images/chrome/" + iconName[0] + ".png";
-			}
+		if (IS_FIREFOX) {
+			image = this.pageFavIcon(address);
+		} else if (suspendedIcon) {
+			image = suspendedIcon;
+		} else if (suspendedPage) {
+			image = storedFavicon(chrome.runtime.id, suspendedPage);
+		} else if (!!address && tab.status !== "loading") {
+			image = storedFavicon(chrome.runtime.id, address);
+		} else {
+			image = "";
 		}
 		if (this.state.favIcon == image) return;
 		this.setState({

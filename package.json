@@ -1,23 +1,19 @@
 {
   "name": "tab-manager-plus",
   "version": "7.0.0",
-  "description": "This is an extended version of the old Tab Manager Google Chrome extension. Should work on both Chrome and Firefox. Malware free, with a new view type and many new features.",
+  "description": "This is an extended version of the old Tab Manager Google Chrome extension. Malware free, with a new view type and many new features. Built for Chrome and Brave.",
   "main": "index.js",
   "directories": {
     "src": "src"
   },
   "scripts": {
     "test": "node --test \"tests/**/*.test.ts\"",
-    "build": "tsc --noEmit && node build.mjs && node build.mjs --brave",
+    "build": "tsc --noEmit && node build.mjs --all",
     "build:chrome": "tsc --noEmit && node build.mjs",
     "build:brave": "tsc --noEmit && node build.mjs --brave",
     "build:dev": "tsc --noEmit && node build.mjs --dev",
     "watch": "tsc --noEmit && node build.mjs --watch",
     "watch:dev": "tsc --noEmit && node build.mjs --watch --dev",
-    "build:firefox": "tsc --noEmit && node build.mjs --firefox",
-    "build:firefox:dev": "tsc --noEmit && node build.mjs --firefox --dev",
-    "watch:firefox:dev": "tsc --noEmit && node build.mjs --firefox --watch --dev",
-    "lint:firefox": "web-ext lint --source-dir build/firefox --warnings-as-errors=false",
     "version": "node scripts/sync-version.mjs && git add manifest.json readme.md changelog.html",
     "check-version": "node scripts/sync-version.mjs --check",
     "psl": "node scripts/psl.mjs",
@@ -60,7 +56,6 @@
     "pngjs": "^7.0.0",
     "puppeteer-core": "^25.12.0",
     "typescript": "^7.0.2",
-    "web-ext": "^10.7.0",
     "webextension-polyfill": "^0.12.0",
     "yazl": "^2.5.1"
   },

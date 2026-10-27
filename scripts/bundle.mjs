@@ -31,15 +31,15 @@ export const APP_ENTRIES = {
 
 /**
  * Options both kinds of bundle share.
- * @param {{browser: 'chrome' | 'firefox', dev: boolean, outDir: string, version: string, workerVersion?: string}} o
+ * @param {{browser: 'chrome' | 'brave', dev: boolean, outDir: string, version: string, workerVersion?: string}} o
  * @returns {import('esbuild').BuildOptions}
  */
 function common({ browser, dev, outDir, version, workerVersion }) {
 	return {
 		outdir: join(outDir, 'dist'),
 		bundle: true,
-		// the manifests' minimum versions, like the stylesheet (scripts/css.mjs)
-		target: ['chrome104', 'firefox140'],
+		// the manifest's minimum version, like the stylesheet (scripts/css.mjs)
+		target: ['chrome104'],
 		minify: !dev,
 		sourcemap: dev,
 		define: {

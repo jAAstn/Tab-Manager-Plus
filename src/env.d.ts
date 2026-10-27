@@ -1,4 +1,4 @@
-declare const process: { env: { VERSION: string; NODE_ENV: "development" | "production" | "test"; BROWSER: "chrome" | "firefox" } };
+declare const process: { env: { VERSION: string; NODE_ENV: "development" | "production" | "test"; BROWSER: "chrome" | "brave" } };
 
 // Replaced by true/false at build time (build.mjs), so esbuild drops the other
 // browser's branches: `if (IS_FIREFOX) { ... }` works like C#'s #if FIREFOX.
