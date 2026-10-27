@@ -5,7 +5,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { suspendedTabIcon, suspendedTabPage, storedFavicon } from "../src/helpers/tabIcon.ts";
+import { suspendedTabIcon, suspendedTabPage, storedFavicon, extensionTabIcon } from "../src/helpers/tabIcon.ts";
 
 // The Marvellous Suspender, as its suspended tabs really look: the page's own
 // icon and address in the fragment (percent-encoded, as its page is)
@@ -78,6 +78,38 @@ describe("suspendedTabPage", () => {
 	test("a suspended tab without an address has none to give", () => {
 		assert.equal(suspendedTabPage("chrome-extension://abc/suspended.html#ttl=x&pos=0"), "");
 		assert.equal(suspendedTabPage("https://example.com/suspended.html#uri=https%3A%2F%2Fx.test%2F"), "");
+	});
+});
+
+describe("extensionTabIcon", () => {
+	// A suspension the Marvellous Suspender made without storing the icon in
+	// the address: the suspender page sets it in <link rel=icon> and the tab
+	// reports it back as a data: url (tampermonkey.net/documentation.php, 2858 bytes)
+	const PAGE_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAA";
+	const SUSPENDED_NO_ICON = "chrome-extension://noogafoofpebimajpfpamcfhoaiemoja/suspended.html#ttl=Documentation%20%7C%20Tampermonkey&pos=376&uri=https%3A%2F%2Fwww.tampermonkey.net%2Fdocumentation.php";
+
+	test("takes the tab's own data: icon for an extension page", () => {
+		assert.equal(extensionTabIcon(SUSPENDED_NO_ICON, PAGE_ICON), PAGE_ICON);
+	});
+
+	test("it does on any chrome-extension page, not just a suspender's", () => {
+		assert.equal(extensionTabIcon("chrome-extension://abc/dashboard.html", PAGE_ICON), PAGE_ICON);
+	});
+
+	test("a non-image favIconUrl has no icon to take", () => {
+		assert.equal(extensionTabIcon(SUSPENDED_NO_ICON, "https://x.test/favicon.ico"), "");
+		assert.equal(extensionTabIcon(SUSPENDED_NO_ICON, "chrome-extension://abc/img/icon.png"), "");
+		assert.equal(extensionTabIcon(SUSPENDED_NO_ICON, ""), "");
+		assert.equal(extensionTabIcon(SUSPENDED_NO_ICON, undefined), "");
+	});
+
+	test("an ordinary page's favIconUrl is not taken", () => {
+		assert.equal(extensionTabIcon("https://example.com/", PAGE_ICON), "");
+		assert.equal(extensionTabIcon("chrome://settings/", PAGE_ICON), "");
+	});
+
+	test("address case does not matter", () => {
+		assert.equal(extensionTabIcon("CHROME-EXTENSION://abc/suspended.html", PAGE_ICON), PAGE_ICON);
 	});
 });
 

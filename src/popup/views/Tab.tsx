@@ -6,7 +6,7 @@ import * as React from "react";
 import {ITab, ITabState} from '@types';
 import {ManagerContext, ITabManagerActions} from '../context';
 import {faviconTone} from '@helpers/favicon';
-import {suspendedTabIcon, suspendedTabPage, storedFavicon} from '@helpers/tabIcon';
+import {suspendedTabIcon, suspendedTabPage, storedFavicon, extensionTabIcon} from '@helpers/tabIcon';
 import {tabFreshness} from "../freshness";
 import {titleHits} from "../search";
 import {stripUserinfo, shownUrl} from "../safeUrl";
@@ -413,15 +413,19 @@ export class Tab extends React.Component<ITab, ITabState> {
 		const tab = this.props.tab;
 		const address : string = tab.url || tab.pendingUrl || "";
 		// a tab a suspender extension holds carries the page's icon, or at least
-		// its address, in its own address (helpers/tabIcon.ts)
+		// its address, in its own address (helpers/tabIcon.ts); when the icon was
+		// kept only in the suspender's page, the tab still has it as favIconUrl
 		const suspendedIcon = suspendedTabIcon(address);
-		const suspendedPage = suspendedIcon ? "" : suspendedTabPage(address);
+		const extensionIcon = suspendedIcon ? "" : extensionTabIcon(address, tab.favIconUrl);
+		const suspendedPage = suspendedIcon || extensionIcon ? "" : suspendedTabPage(address);
 
 		let image : string;
 		if (IS_FIREFOX) {
 			image = this.pageFavIcon(address);
 		} else if (suspendedIcon) {
 			image = suspendedIcon;
+		} else if (extensionIcon) {
+			image = extensionIcon;
 		} else if (suspendedPage) {
 			image = storedFavicon(chrome.runtime.id, suspendedPage);
 		} else if (!!address && tab.status !== "loading") {

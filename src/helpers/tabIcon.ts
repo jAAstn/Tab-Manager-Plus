@@ -16,11 +16,20 @@
 // that fragment, and these two readers take them from there: the tile then
 // shows the icon the page itself has, while it is suspended, while it is being
 // restored and when it is restored again.
+//
+// A suspender that keeps the icon only in its page (not in the address) still
+// leaves it on the tab as favIconUrl (a data: url the page set in
+// <link rel=icon>): extensionTabIcon() takes it from there, for any address
+// that is a chrome-extension:// page, where the favicon store cannot answer.
 
 // The suspenders' page, the only address these parameters are read from. A
 // page of its own may carry a "uri" for anything; a browser-internal page never
 // goes through here.
 const SUSPENDED = /^chrome-extension:\/\/[^/]+\/suspended\.html(?:[?#]|$)/i;
+// any extension's own page (a suspender's, or another extension's)
+const EXTENSION_PAGE = /^chrome-extension:\/\//i;
+// a data: url a favicon can be drawn from
+const DATA_IMAGE = /^data:image\//i;
 // what the favicon store can answer for
 const FAVICON_PAGE = /^(?:https?|file):/i;
 
@@ -62,6 +71,16 @@ export function suspendedTabPage(url : string) : string {
 	if (!SUSPENDED.test(url)) return "";
 	const page = param(url, "uri") || param(url, "url");
 	return FAVICON_PAGE.test(page) ? page : "";
+}
+
+/** The icon the tab itself carries (a data: url the suspender page put in
+ *  <link rel=icon>) for an address that is a chrome-extension:// page, "" when
+ *  it has none. Some suspends keep the icon only in the page, not in the
+ *  address, and the browser's favicon store answers for extension pages with
+ *  the extension's own icon or nothing at all: neither is the page's icon. */
+export function extensionTabIcon(address : string, favIconUrl : string | undefined) : string {
+	if (!EXTENSION_PAGE.test(address)) return "";
+	return favIconUrl && DATA_IMAGE.test(favIconUrl) ? favIconUrl : "";
 }
 
 /** The browser's own favicon for `page`, served by the extension itself (the
