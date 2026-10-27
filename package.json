@@ -8,7 +8,9 @@
   },
   "scripts": {
     "test": "node --test \"tests/**/*.test.ts\"",
-    "build": "tsc --noEmit && node build.mjs",
+    "build": "tsc --noEmit && node build.mjs && node build.mjs --brave",
+    "build:chrome": "tsc --noEmit && node build.mjs",
+    "build:brave": "tsc --noEmit && node build.mjs --brave",
     "build:dev": "tsc --noEmit && node build.mjs --dev",
     "watch": "tsc --noEmit && node build.mjs --watch",
     "watch:dev": "tsc --noEmit && node build.mjs --watch --dev",

@@ -11,25 +11,33 @@ import { updateTabCount, discardTabs, moveTabsToWindow, closeTabs, focusOnTabAnd
 import * as browser from 'webextension-polyfill';
 import { ICommand } from '@types';
 
-// Returning the handler's promise keeps the message channel open until the
-// work is done, which also keeps the MV3 service worker alive for the whole
-// operation (e.g. restoring a large session). Unknown commands return nothing
-// so the channel is released immediately. A failed handler (say, focusing a
-// tab that was closed meanwhile) is logged here; the popup's sendMessage
-// resolves either way, none of its callers can do anything with the error.
-export function handleMessages(message : unknown, sender : browser.Runtime.MessageSender) {
+// Answering with sendResponse and returning true keeps the message channel
+// open until the work is done, which also keeps the MV3 service worker alive
+// for the whole operation (e.g. restoring a large session). Unknown commands
+// return nothing so the channel is released immediately. A failed handler (say,
+// focusing a tab that was closed meanwhile) is logged here; the popup's
+// sendMessage resolves either way, none of its callers can do anything with
+// the error.
+//
+// The listener must not return the handler's promise instead: older Chromium
+// builds - Brave 1.84 ships Chromium 142 - do not support a Promise as the
+// answer, close the port, and the popup then reports the worker as out of date.
+export function handleMessages(message : unknown, sender : browser.Runtime.MessageSender, sendResponse : (response? : unknown) => void) : true | undefined {
 	if (!message || typeof message !== "object") return;
 	let result : Promise<unknown> | void;
 	try {
 		result = dispatch(message as ICommand);
 	} catch (e) {
 		console.error(e);
+		sendResponse();
 		return;
 	}
 	if (!result) return;
-	return result.catch(function (e) {
+	result.then(sendResponse, function (e) {
 		console.error(e);
+		sendResponse();
 	});
+	return true;
 }
 
 function dispatch(request : ICommand) : Promise<unknown> | void {

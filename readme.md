@@ -64,13 +64,16 @@ The extension is written in TypeScript and bundled with esbuild into `build/<bro
 git clone https://github.com/stefanXO/Tab-Manager-Plus.git
 cd Tab-Manager-Plus
 npm ci
-npm run build            # -> build/chrome
+npm run build            # -> build/chrome and build/brave
+npm run build:chrome     # -> build/chrome
+npm run build:brave      # -> build/brave
 npm run build:firefox    # -> build/firefox
 ```
 
 Then load the built folder as an unpacked extension:
 
-* **Chrome / Edge / Brave:** open `chrome://extensions`, turn on *Developer mode*, click *Load unpacked* and pick `build/chrome`.
+* **Chrome / Edge:** open `chrome://extensions`, turn on *Developer mode*, click *Load unpacked* and pick `build/chrome`.
+* **Brave:** the same, with `build/brave`. Brave 1.84 ships Chromium 142, which is older than current Chrome; the Brave build and the shared compatibility fixes keep the extension working there.
 * **Firefox:** run `npx web-ext run --source-dir build/firefox`, or open `about:debugging` → *This Firefox* → *Load Temporary Add-on* and pick `build/firefox/manifest.json`. The 7.x Firefox version is not published yet, and the current Firefox add-on is still built from the `firefox_521` branch.
 
 Useful scripts:

@@ -1,6 +1,7 @@
 // Builds a complete, loadable extension folder per browser with esbuild.
 //
 //   node build.mjs             production Chrome  -> build/chrome
+//   node build.mjs --brave     production Brave   -> build/brave
 //   node build.mjs --firefox   production Firefox -> build/firefox
 //   node build.mjs --dev       development: readable output, source maps
 //   node build.mjs --watch     development + rebuild on change (bundle and static files)
@@ -29,12 +30,18 @@
 // scripts/manifest.mjs. The committed manifest.json must never carry the
 // --devtools policy; the check below refuses to build if it does.
 //
-// npm scripts: build (prod), build:dev, watch, watch:dev, and :firefox variants.
+// Brave runs Chromium, often an older one than Chrome stable (1.84 ships 142),
+// so it gets a folder of its own to load. The code is the same; the compatibility
+// work lives in the shared sources and the conservative esbuild target (chrome104),
+// never behind a Brave-only branch.
+//
+// npm scripts: build (prod Chrome and Brave), build:chrome, build:brave,
+// build:dev, watch, watch:dev, and :firefox variants.
 
 import * as esbuild from 'esbuild'
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, existsSync, statSync, watch as watchPath } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { firefoxManifest } from './scripts/manifest.mjs'
+import { braveManifest, firefoxManifest } from './scripts/manifest.mjs'
 import { cssOptions } from './scripts/css.mjs'
 import { workerOptions, appOptions, stampWorkerOutputs } from './scripts/bundle.mjs'
 
@@ -42,7 +49,7 @@ const args = new Set(process.argv.slice(2))
 const watch = args.has('--watch')
 const dev = watch || args.has('--dev')
 const devtools = args.has('--devtools')
-const browser = args.has('--firefox') ? 'firefox' : 'chrome'
+const browser = args.has('--firefox') ? 'firefox' : args.has('--brave') ? 'brave' : 'chrome'
 
 // version comes from package.json so this works outside `npm run` too
 const { version } = JSON.parse(readFileSync('package.json', 'utf8'))
@@ -109,6 +116,8 @@ function writeManifest() {
 		} catch (error) {
 			fail(String(error.message))
 		}
+	} else if (browser === 'brave') {
+		manifest = braveManifest(base)
 	} else if (dev && devtools) {
 		manifest = { ...base, content_security_policy: DEVTOOLS_CSP }
 	}
@@ -128,7 +137,7 @@ function copyStatic() {
 	for (const path of OPTIONAL_STATIC) if (existsSync(path)) copy(path)
 }
 
-if (devtools && browser === 'firefox') console.log('--devtools only applies to Chrome, ignoring it')
+if (devtools && browser !== 'chrome') console.log('--devtools only applies to Chrome, ignoring it')
 if (devtools && !dev) console.log('--devtools only applies to a development build, ignoring it')
 
 // esbuild never deletes old output, and a stale manifest or image would ship

@@ -55,6 +55,18 @@ export function checkPermissions(base, merged) {
 	}
 }
 
+/**
+ * The Brave manifest: the Chrome manifest, named for Brave. Brave runs the same
+ * MV3 package, but it ships an older Chromium than Chrome stable, so it gets
+ * its own build folder (see build.mjs).
+ */
+export function braveManifest(base) {
+	const manifest = structuredClone(base);
+	manifest.name = base.name.replace("for Chrome", "for Brave");
+	manifest.description = base.description.replace("for Chrome", "for Brave");
+	return manifest;
+}
+
 /** The Firefox manifest: the Chrome one with the overlay applied and checked. */
 export function firefoxManifest(base, overlay) {
 	const data = Object.fromEntries(Object.entries(overlay).filter(([key]) => !key.startsWith("$")));
